@@ -23,8 +23,6 @@ if (typeof module !== "undefined") {
 var debug = function(){};
 if (typeof console !== "undefined") {
   debug = console.log;
-} else if (typeof print !== "undefined") {
-  debug = print
 }
 
 
@@ -101,9 +99,9 @@ function PyPyJS(opts) {
       this.stderr = function(x) { process.stderr.write(x); }
     }
   }
-  if (typeof print !== "undefined") {
+  if (typeof console !== "undefined") {
     if (this.stdout === null) {
-      // print() will add a newline, so we buffer until we
+      // console.log() will add a newline, so we buffer until we
       // receive one and then let it add it for us.
       this.stdout = (function() {
         var buffer = [];
@@ -113,7 +111,7 @@ function PyPyJS(opts) {
             if (x !== "\n") {
               buffer.push(x);
             } else {
-              print(buffer.join(""));
+              console.log(buffer.join(""));
               buffer.splice(undefined, buffer.length);
             }
           }
@@ -121,9 +119,9 @@ function PyPyJS(opts) {
       })();
     }
   }
-  if (typeof printErr !== "undefined") {
+  if (typeof console !== "undefined") {
     if (this.stderr === null) {
-      // printErr() will add a newline, so we buffer until we
+      // console.error() will add a newline, so we buffer until we
       // receive one and then let it add it for us.
       this.stderr = (function() {
         var buffer = [];
@@ -133,7 +131,7 @@ function PyPyJS(opts) {
             if (x !== "\n") {
               buffer.push(x);
             } else {
-              printErr(buffer.join(""));
+              console.error(buffer.join(""));
               buffer.splice(undefined, buffer.length);
             }
           }
