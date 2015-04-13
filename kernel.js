@@ -29,7 +29,16 @@ define([
         return false;
     };
     
+    var _executing = false;
+    var _to_execute = [];
+    
     var execute = function (code, callbacks, options) {
+        if (_executing) {
+            _to_execute.push([code, callbacks, options]);
+            return;
+        }
+        _executing = true;
+        
         var vm = IPython.notebook.kernel._vm;
         var that = this;
         var request = this._get_msg("execute_request", {code: code});
@@ -43,7 +52,7 @@ define([
                 var msg = that._get_msg("stream", {name: name, text: data});
                 msg.parent_header = request.header;
                 that._handle_iopub_message(msg);
-            }
+            };
         }
         vm.stdout = _stream_output('stdout');
         vm.stderr = _stream_output('stderr');
@@ -55,7 +64,7 @@ define([
         });
     };
     
-    var _finish_execute = function (result, request, success) {
+    var _finish_execute = function (r, request, success) {
         var that = this;
         var reply = this._get_msg("execute_reply", {
             status : "ok",
@@ -63,21 +72,21 @@ define([
         });
         reply.parent_header = request.header;
         var result = null;
-        if (result !== null && result !== undefined) {
+        if (r !== null && r !== undefined) {
             if (success) {
                 result = this._get_msg("execute_result", {
                     execution_count: this.execution_count,
                     data : {
-                        'text/plain' : "" + result
+                        'text/plain' : "" + r
                     },
                     metadata : {}
                 });
             } else if (!success){
                 result = that._get_msg("error", {
                     execution_count: that.execution_count,
-                    ename : result.name,
-                    evalue : result.message,
-                    traceback : [result.stack]
+                    ename : r.name,
+                    evalue : r.message,
+                    traceback : [r.stack]
                 });
             }
             result.parent_header = request.header;
@@ -90,6 +99,10 @@ define([
         this.execution_count = this.execution_count + 1;
         this._handle_iopub_message(idle);
         this._handle_shell_reply(reply);
+        _executing = false;
+        if (_to_execute.length) {
+            this.execute.apply(this, _to_execute.shift());
+        }
     };
     
     var onload = function () {
