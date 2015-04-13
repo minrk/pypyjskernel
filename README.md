@@ -19,3 +19,6 @@ Unpacking objects: 100% (11/11), done.
 You should now be able to select 'PyPy.js' from the kernel selection drop-down.
 
 Requires IPython ≥ 3.
+
+The kernel code is Copyright (c) Min Ragan-Kelley, licensed under 3-clause BSD.
+PyPy.js is Copyright (c) Ryan Kelly, and used under the MIT license.
