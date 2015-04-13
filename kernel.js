@@ -5,12 +5,12 @@ define([
     var kernel_info = function (callback) {
         var reply = this._get_msg("kernel_info_reply", {
             protocol_version: '5.0.0',
-            implementation: 'jskernel',
-            implementation_version: '0.0.2',
+            implementation: 'pypyjs',
+            implementation_version: '0.0.1',
             language_info: {
-                name: "javascript",
-                mimetype: "text/javascript",
-                file_extension: '.js'
+                name: "python",
+                mimetype: "text/x-python",
+                file_extension: '.py'
             }
         });
         
@@ -30,72 +30,75 @@ define([
     };
     
     var execute = function (code, callbacks, options) {
+        var vm = IPython.notebook.kernel._vm;
         var that = this;
         var request = this._get_msg("execute_request", {code: code});
         this.set_callbacks_for_msg(request.header.msg_id, callbacks);
         
         var r = null;
         var success = true;
-        var save_console_log = console.log;
-        console.log = function () {
-            /** turn console.log into stdout messages */
-            var data = "";
-            for (var i = 0; i < arguments.length; i++) {
-                if (i) data += " ";
-                data += arguments[i];
+        
+        function _stream_output (name) {
+            return function (data) {
+                var msg = that._get_msg("stream", {name: name, text: data});
+                msg.parent_header = request.header;
+                that._handle_iopub_message(msg);
             }
-            data += "\n";
-            var msg = that._get_msg("stream", {name: "stdout", text: data});
-            msg.parent_header = request.header;
-            that._handle_iopub_message({data : JSON.stringify(msg)});
-        };
-        try {
-            r = eval(code);
-        } catch(err) {
-            r = err;
-            success = false;
         }
-        console.log = save_console_log;
+        vm.stdout = _stream_output('stdout');
+        vm.stderr = _stream_output('stderr');
+        // execution adapted from pypy.js example website
+        code = code.replace(/\\/g, "\\\\").replace(/'''/g, "\\'\\'\\'");
+        code = "r = c.runsource('''" + code + "''', '<input>', 'exec')";
+        vm.eval(code).then(function() {
+            _finish_execute.apply(that, [r, request, true]);
+        });
+    };
+    
+    var _finish_execute = function (result, request, success) {
+        var that = this;
         var reply = this._get_msg("execute_reply", {
             status : "ok",
             execution_count: this.execution_count
         });
         reply.parent_header = request.header;
         var result = null;
-        if (r !== null && r !== undefined) {
+        if (result !== null && result !== undefined) {
             if (success) {
                 result = this._get_msg("execute_result", {
                     execution_count: this.execution_count,
                     data : {
-                        'text/plain' : "" + r
+                        'text/plain' : "" + result
                     },
                     metadata : {}
                 });
             } else if (!success){
-                result = this._get_msg("error", {
-                    execution_count: this.execution_count,
-                    ename : r.name,
-                    evalue : r.message,
-                    traceback : [r.stack]
+                result = that._get_msg("error", {
+                    execution_count: that.execution_count,
+                    ename : result.name,
+                    evalue : result.message,
+                    traceback : [result.stack]
                 });
             }
             result.parent_header = request.header;
-            this._handle_iopub_message({data : JSON.stringify(result)});
+            that._handle_iopub_message(result);
         }
-        
+
         var idle = this._get_msg("status", {status: "idle"});
         idle.parent_header = request.header;
-        
-        this.execution_count = this.execution_count + 1;
-        this._handle_iopub_message({data : JSON.stringify(idle)});
-        this._handle_shell_reply({data : JSON.stringify(reply)});
-    };
 
+        this.execution_count = this.execution_count + 1;
+        this._handle_iopub_message(idle);
+        this._handle_shell_reply(reply);
+    };
     
     var onload = function () {
+    
+    require(['./pypy.js-0.2.0/lib/pypy.js'], function () {
         var kernel = IPython.notebook.kernel;
-        console.log("monkeypatching kernel for in-browser js", kernel);
+        console.log("monkeypatching kernel for in-browser PyPy.js", kernel);
         kernel.execution_count = 1;
+        var vm = kernel._vm = new PyPyJS();
         // monkeypatch methods
         kernel.is_connected = return_true;
         kernel.is_fully_disconnected = return_false;
@@ -113,7 +116,12 @@ define([
             kernel._kernel_connected();
         };
         kernel.stop_channels();
-        kernel.start_channels();
+        vm.eval('import code').then(function () {
+            vm.eval('c = code.InteractiveInterpreter()').then(function() {
+                kernel.start_channels();
+            });
+        });
+    });
     };
     
     return {

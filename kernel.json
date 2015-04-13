@@ -1,4 +1,5 @@
 {
-  "display_name": "Javascript",
-  "argv": ["python", "-c", "import itertools, time; [time.sleep(326400) for i in itertools.count()]"]
+  "display_name": "PyPy.js",
+  "argv": ["python", "-c", "import itertools, time; [time.sleep(326400) for i in itertools.count()]"],
+  "language": "python"
 }
