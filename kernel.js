@@ -1,7 +1,8 @@
 define([
     "base/js/namespace",
-], function (IPython) {
-    
+    "./pypy.js-0.2.0/lib/pypy.js",
+], function (IPython, pypyjs) {
+  
     var kernel_info = function (callback) {
         var reply = this._get_msg("kernel_info_reply", {
             protocol_version: '5.0.0',
@@ -106,8 +107,6 @@ define([
     };
     
     var onload = function () {
-    
-    require(['./pypy.js-0.2.0/lib/pypy.js'], function () {
         var kernel = IPython.notebook.kernel;
         console.log("monkeypatching kernel for in-browser PyPy.js", kernel);
         kernel.execution_count = 1;
@@ -134,7 +133,6 @@ define([
                 kernel.start_channels();
             });
         });
-    });
     };
     
     return {
